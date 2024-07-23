@@ -57,6 +57,21 @@ export const constantRoutes = [
     hidden: true
   },
   {
+    path: '/turnitin/check',
+    component: () => import('@/views/turnitin/index.vue'),
+    hidden: false
+  },
+  {
+    path: '/grammarly/check',
+    component: () => import('@/views/grammarly/Grammarly.vue'),
+    hidden: false
+  },
+  {
+    path: '/turnitin-ai',
+    component: () => import('@/views/turnitin/AiReport.vue'),
+    hidden: false
+  },
+  {
     path: '/401',
     component: () => import('@/views/error/401'),
     hidden: true

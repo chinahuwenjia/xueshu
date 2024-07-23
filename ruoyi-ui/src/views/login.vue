@@ -6,7 +6,7 @@
         <el-input
           v-model="loginForm.username"
           type="text"
-          auto-complete="off"
+          auto-complete="on"
           placeholder="账号"
         >
           <svg-icon slot="prefix" icon-class="user" class="el-input__icon input-icon" />
@@ -16,7 +16,7 @@
         <el-input
           v-model="loginForm.password"
           type="password"
-          auto-complete="off"
+          auto-complete="on"
           placeholder="密码"
           @keyup.enter.native="handleLogin"
         >
@@ -89,7 +89,7 @@ export default {
       },
       loading: false,
       // 验证码开关
-      captchaEnabled: true,
+      captchaEnabled: false,
       // 注册开关
       register: false,
       redirect: undefined
