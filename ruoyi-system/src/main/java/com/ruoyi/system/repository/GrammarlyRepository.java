@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface GrammarlyRepository extends MongoRepository<ManagerAccount, String> {
-    Optional<ManagerAccount> findByAccountName(String accountName);
+    ManagerAccount findByAccountName(String accountName);
 
     List<ManagerAccount> findByAccountType(String accountType);
 

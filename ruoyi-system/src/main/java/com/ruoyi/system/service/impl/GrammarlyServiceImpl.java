@@ -1,7 +1,11 @@
 package com.ruoyi.system.service.impl;
 
 
+import cn.hutool.json.JSONObject;
+import com.ruoyi.common.utils.CookieParse;
 import com.ruoyi.common.utils.XueShuStaticParam;
+import com.ruoyi.system.domain.grammarly.AuthorizeDTO;
+import com.ruoyi.system.domain.grammarly.TokenDTO;
 import com.ruoyi.system.domain.turnitin.Code;
 import com.ruoyi.system.domain.turnitin.GrammarlyDocumentRes;
 import com.ruoyi.system.domain.turnitin.ManagerAccount;
@@ -17,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Slf4j
@@ -32,14 +37,14 @@ public class GrammarlyServiceImpl implements GrammarlyService {
     public boolean submit(String code, MultipartFile file) {
         Code currentCode = codeRepository.findByCode(code).orElseThrow(() -> new IllegalArgumentException("Grammarlt检查码不存在"));
         List<ManagerAccount> managerAccounts = grammarlyRepository.findByAccountType("grammarly");
-        if (CollectionUtils.isEmpty(managerAccounts)){
+        if (CollectionUtils.isEmpty(managerAccounts)) {
             log.error("Grammarly账号不存在");
             return false;
         }
         Collections.shuffle(managerAccounts);
         ManagerAccount managerAccount = managerAccounts.get(0);
-        GrammarlyDocumentRes  grammarlyDocumentRes = GrammarlyOAuth2Client.uploadFileToGrammarly(currentCode ,file,  managerAccount);
-        if (grammarlyDocumentRes == null){
+        GrammarlyDocumentRes grammarlyDocumentRes = GrammarlyOAuth2Client.uploadFileToGrammarly(currentCode, file, managerAccount);
+        if (grammarlyDocumentRes == null) {
             return false;
         }
         currentCode.setLinkedAccount(managerAccount.getAccountName());
@@ -60,4 +65,52 @@ public class GrammarlyServiceImpl implements GrammarlyService {
     public Code getFile(String code) {
         return null;
     }
+
+    @Override
+    public AuthorizeDTO auth(String code) {
+        ManagerAccount managerAccount = getManagerAccount(code);
+        String curl = managerAccount.getCurlString();
+        Map<String, String> headers = CookieParse.convertCurlToMap(curl);
+        String codeVerifier = GrammarlyOAuth2Client.generateCodeVerifier();
+        return GrammarlyOAuth2Client.getAuthorizationCode(codeVerifier, headers);
+    }
+
+    private ManagerAccount getManagerAccount(String code) {
+        Code currentCode = codeRepository.findByCode(code).orElseThrow(() -> new IllegalArgumentException("Grammarlt检查码不存在"));
+        List<ManagerAccount> managerAccounts = grammarlyRepository.findByAccountType("grammarly");
+        if (CollectionUtils.isEmpty(managerAccounts)) {
+            throw new RuntimeException("auth:Grammarly账号不存在");
+        }
+        String linkedAccount = currentCode.getLinkedAccount();
+        ManagerAccount managerAccount = null;
+        if (linkedAccount != null) {
+            managerAccount = grammarlyRepository.findByAccountName(linkedAccount);
+        }
+        if (linkedAccount == null || managerAccount == null) {
+            Collections.shuffle(managerAccounts);
+            managerAccount = managerAccounts.get(0);
+            currentCode.setLinkedAccount(managerAccount.getAccountName());
+            currentCode.setCurlString(managerAccount.getCurlString());
+        }
+        return managerAccount;
+    }
+
+    @Override
+    public TokenDTO getToken(String code) {
+        ManagerAccount managerAccount = getManagerAccount(code);
+        String curl = managerAccount.getCurlString();
+        Map<String, String> headers = CookieParse.convertCurlToMap(curl);
+        String codeVerifier = GrammarlyOAuth2Client.generateCodeVerifier();
+        AuthorizeDTO authorizeDTO = GrammarlyOAuth2Client.getAuthorizationCode(codeVerifier, headers);
+        return GrammarlyOAuth2Client.getTokens(authorizeDTO.getCode(), codeVerifier, headers);
+    }
+
+    @Override
+    public Boolean userV3(String code) {
+        ManagerAccount managerAccount = getManagerAccount(code);
+        String curl = managerAccount.getCurlString();
+        Map<String, String> headers = CookieParse.convertCurlToMap(curl);
+       return GrammarlyOAuth2Client.getUser(headers);
+    }
+
 }
