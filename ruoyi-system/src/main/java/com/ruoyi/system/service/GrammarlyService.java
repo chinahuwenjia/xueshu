@@ -2,6 +2,7 @@ package com.ruoyi.system.service;
 
 import com.ruoyi.system.domain.grammarly.AuthorizeDTO;
 import com.ruoyi.system.domain.grammarly.TokenDTO;
+import com.ruoyi.system.domain.grammarly.UserDTO;
 import com.ruoyi.system.domain.turnitin.Code;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -17,5 +18,5 @@ public interface GrammarlyService {
 
     TokenDTO getToken(String code);
 
-    Boolean userV3(String code);
+    UserDTO userV3(String code);
 }

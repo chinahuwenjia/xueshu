@@ -9,6 +9,7 @@ import cn.hutool.json.JSONUtil;
 import com.ruoyi.common.utils.CookieParse;
 import com.ruoyi.system.domain.grammarly.AuthorizeDTO;
 import com.ruoyi.system.domain.grammarly.TokenDTO;
+import com.ruoyi.system.domain.grammarly.UserDTO;
 import com.ruoyi.system.domain.turnitin.Code;
 import com.ruoyi.system.domain.turnitin.GrammarlyDocumentRes;
 import com.ruoyi.system.domain.turnitin.ManagerAccount;
@@ -21,7 +22,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -188,7 +188,7 @@ public class GrammarlyOAuth2Client {
     }
 
 
-    public static boolean getUser(Map<String, String> headers) {
+    public static UserDTO getUser(Map<String, String> headers) {
         String url = "https://auth.grammarly.com/v3/user?app=webeditor_chrome&field=sandbox.payments&field=frontend_role";
         // 构建请求
         HttpRequest request = HttpUtil.createGet(url)
@@ -216,12 +216,11 @@ public class GrammarlyOAuth2Client {
         HttpResponse response = request.execute();
         if (response.getStatus() != 200) {
             log.error("获取用户信息失败: {}", response.body());
-            return false;
+            throw new RuntimeException("获取用户信息失败");
         }
-        log.info("获取用户信息成功: " );
-        return true;
+        log.info("获取用户信息成功: ");
+        return JSONUtil.parseObj(response.body()).toBean(UserDTO.class);
     }
-
 
 
     public static void main(String[] args) {
@@ -252,7 +251,7 @@ public class GrammarlyOAuth2Client {
         System.out.println(authorizeDTO.toString());
         TokenDTO tokenDTO = GrammarlyOAuth2Client.getTokens(authorizeDTO.getCode(), codeVerifier, headers);
         System.out.println(tokenDTO.toString());
-        getUser( headers);
+        System.out.println(getUser(headers));
     }
 
 }

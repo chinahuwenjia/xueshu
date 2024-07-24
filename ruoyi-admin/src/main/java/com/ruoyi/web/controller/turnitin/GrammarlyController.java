@@ -2,8 +2,8 @@ package com.ruoyi.web.controller.turnitin;
 
 import com.ruoyi.system.domain.grammarly.AuthorizeDTO;
 import com.ruoyi.system.domain.grammarly.TokenDTO;
+import com.ruoyi.system.domain.grammarly.UserDTO;
 import com.ruoyi.system.service.GrammarlyService;
-import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import lombok.extern.slf4j.Slf4j;
@@ -71,12 +71,8 @@ public class GrammarlyController {
     @PostMapping("/user/v3")
     public ResponseEntity<?> userV3(@ApiParam(value = "通过兑换码去查询用户信息", required = true) @RequestParam("code") String code) {
         try {
-            Boolean result = grammarlyService.userV3(code);
-            if (result) {
-                return ResponseEntity.ok("success");
-            } else {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("failed");
-            }
+            UserDTO result = grammarlyService.userV3(code);
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Error getting user info", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(" " + e.getMessage());
