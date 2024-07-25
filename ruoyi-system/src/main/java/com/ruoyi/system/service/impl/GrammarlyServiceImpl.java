@@ -1,11 +1,11 @@
 package com.ruoyi.system.service.impl;
 
 
-import cn.hutool.json.JSONObject;
 import com.ruoyi.common.utils.CookieParse;
 import com.ruoyi.common.utils.XueShuStaticParam;
 import com.ruoyi.system.domain.grammarly.AuthorizeDTO;
 import com.ruoyi.system.domain.grammarly.TokenDTO;
+import com.ruoyi.system.domain.grammarly.TreatmentDTO;
 import com.ruoyi.system.domain.grammarly.UserDTO;
 import com.ruoyi.system.domain.turnitin.Code;
 import com.ruoyi.system.domain.turnitin.GrammarlyDocumentRes;
@@ -113,5 +113,22 @@ public class GrammarlyServiceImpl implements GrammarlyService {
         Map<String, String> headers = CookieParse.convertCurlToMap(curl);
        return GrammarlyOAuth2Client.getUser(headers);
     }
+
+    @Override
+    public List<TreatmentDTO> getTratement(String code) {
+        ManagerAccount managerAccount = getManagerAccount(code);
+        String curl = managerAccount.getCurlString();
+        Map<String, String> headers = CookieParse.convertCurlToMap(curl);
+        return GrammarlyOAuth2Client.treatmentGet(headers);
+    }
+
+    @Override
+    public List<String> getDocumentAPI(String code) {
+        ManagerAccount managerAccount = getManagerAccount(code);
+        String curl = managerAccount.getCurlString();
+        Map<String, String> headers = CookieParse.convertCurlToMap(curl);
+        return GrammarlyOAuth2Client.getDocumentAPI(headers);
+    }
+
 
 }

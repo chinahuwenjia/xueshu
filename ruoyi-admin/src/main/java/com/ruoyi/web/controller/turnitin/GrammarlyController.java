@@ -2,6 +2,7 @@ package com.ruoyi.web.controller.turnitin;
 
 import com.ruoyi.system.domain.grammarly.AuthorizeDTO;
 import com.ruoyi.system.domain.grammarly.TokenDTO;
+import com.ruoyi.system.domain.grammarly.TreatmentDTO;
 import com.ruoyi.system.domain.grammarly.UserDTO;
 import com.ruoyi.system.service.GrammarlyService;
 import io.swagger.annotations.ApiOperation;
@@ -15,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/grammarly")
@@ -75,6 +78,33 @@ public class GrammarlyController {
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Error getting user info", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(" " + e.getMessage());
+        }
+    }
+
+    @ApiOperation("获取Tratement，这个接口请求有多个入参，目前只实现了其中一个")
+    @PostMapping("/tratement/get")
+    public ResponseEntity<?> getTratement( @RequestParam("code") String code) {
+        try {
+            List<TreatmentDTO> treatmentDTOList = grammarlyService.getTratement(code);
+            return ResponseEntity.ok(treatmentDTOList);
+        }catch (Exception e) {
+            log.error("Error getting tratement", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(" " + e.getMessage());
+        }
+    }
+
+    @ApiOperation("这是需要获得accessToken，尽量复用之前的token接口，目前有效期好像是300s，所以可以考虑缓存一下token，Grammarly-document接口,返回空串")
+    @PostMapping("/document")
+    public ResponseEntity<?> document( @RequestParam("code") String code) {
+        try {
+            List<String> treatmentDTOList = grammarlyService.getDocumentAPI(code);
+            if(null != treatmentDTOList){
+                return ResponseEntity.ok(treatmentDTOList);
+            }
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("获取document接口失败");
+        } catch (Exception e) {
+            log.error("Error getting document", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(" " + e.getMessage());
         }
     }

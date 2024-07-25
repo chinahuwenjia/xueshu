@@ -9,6 +9,7 @@ import cn.hutool.json.JSONUtil;
 import com.ruoyi.common.utils.CookieParse;
 import com.ruoyi.system.domain.grammarly.AuthorizeDTO;
 import com.ruoyi.system.domain.grammarly.TokenDTO;
+import com.ruoyi.system.domain.grammarly.TreatmentDTO;
 import com.ruoyi.system.domain.grammarly.UserDTO;
 import com.ruoyi.system.domain.turnitin.Code;
 import com.ruoyi.system.domain.turnitin.GrammarlyDocumentRes;
@@ -21,9 +22,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 public class GrammarlyOAuth2Client {
@@ -75,13 +74,13 @@ public class GrammarlyOAuth2Client {
         }
 
         JSONObject requestBody = new JSONObject();
-        requestBody.put("client_id", CLIENT_ID);
-        requestBody.put("redirect_uri", REDIRECT_URI);
-        requestBody.put("response_type", "code");
-        requestBody.put("response_mode", "web_message");
-        requestBody.put("code_challenge", codeChallenge);
-        requestBody.put("state", state);
-        requestBody.put("scope", SCOPE);
+        requestBody.set("client_id", CLIENT_ID);
+        requestBody.set("redirect_uri", REDIRECT_URI);
+        requestBody.set("response_type", "code");
+        requestBody.set("response_mode", "web_message");
+        requestBody.set("code_challenge", codeChallenge);
+        requestBody.set("state", state);
+        requestBody.set("scope", SCOPE);
 
         HttpResponse response = getAuthorize(headers, requestBody, AUTHORIZATION_URL);
         if (response.getStatus() != 200) {
@@ -98,7 +97,7 @@ public class GrammarlyOAuth2Client {
     }
 
     private static HttpResponse getAuthorize(Map<String, String> headers, JSONObject requestBody, String authorizationUrl) {
-        HttpResponse response = HttpRequest.post(authorizationUrl)
+        return HttpRequest.post(authorizationUrl)
                 .header("accept", "*/*")
                 .header("accept-language", "zh-CN,zh;q=0.9")
                 .header("cache-control", "no-cache")
@@ -121,15 +120,14 @@ public class GrammarlyOAuth2Client {
                 .header("x-csrf-token", headers.get("x-csrf-token"))
                 .body(requestBody.toString())
                 .execute();
-        return response;
     }
 
     public static TokenDTO getTokens(String authorizationCode, String codeVerifier, Map<String, String> headers) {
         JSONObject requestBody = new JSONObject()
-                .put("client_id", CLIENT_ID)
-                .put("grant_type", "authorization_code")
-                .put("code_verifier", codeVerifier)
-                .put("authorization_code", authorizationCode);
+                .set("client_id", CLIENT_ID)
+                .set("grant_type", "authorization_code")
+                .set("code_verifier", codeVerifier)
+                .set("authorization_code", authorizationCode);
         HttpResponse response = getAuthorize(headers, requestBody, TOKEN_URL);
         if (response.getStatus() != 200) {
             log.error("获取Access Token失败: {}", response.body());
@@ -222,6 +220,83 @@ public class GrammarlyOAuth2Client {
         return JSONUtil.parseObj(response.body()).toBean(UserDTO.class);
     }
 
+    public static List<TreatmentDTO> treatmentGet(Map<String, String> headers) {
+        String url = "https://treatment.grammarly.com/treatment/get";
+        String requestBody = "[\"checklist_steps\",\"checklist_use_case\",\"cheetah_oggy_editor\",\"feature_awareness\",\"premium_free_trial_v3\",\"gdoc_tour\",\"get_started_checklist\",\"get_started_priority\",\"grammarly_pro_m3_v2\",\"inline_premium_previews_denali\",\"checklist_llama_editor\",\"llama_entry_points_v3\",\"locked_ui_iteration_1\",\"long_form_premium_feed\",\"editor_onboarding_tour_a11y_v2\",\"smart_plagiarism_uphook\",\"premium_checklist_no_trial\",\"premium_checklist_trial\",\"premium_free_trial_eu_uk\",\"premium_free_trial_for_new_users\",\"editor_redirect_uphook_to_upgrade_page\",\"remove_welcome_tour\",\"sharedassistant_editor\",\"top_sites_tours\",\"true_up_billing\",\"denali_uphook_card\",\"learning_hub_mvp\",\"writing_progress_v2\",\"writing_progress_v3\",\"locked_ui_editor_2\",\"mac_editor_feature_flag_capi_client_storage\",\"editor_feature_flag_capi_client_storage\",\"cpra\",\"cheetah_editor_skills\",\"cheetah_fetch_skills\",\"cheetah_profuse_events_tracking\",\"ggo_students_onboarding\",\"gdpr_inverted\",\"g_debugger_enabled\",\"get_started_checklist_permanent_dismiss\",\"growth_referrals\",\"cheetah_selection_context_updates\",\"cheetah_selection_context_updates_server\",\"capi_traffic_through_cthulhu\",\"capi_traffic_through_internal_capi\",\"editor_version_history\",\"writing_expert_feedback\",\"writing_expert_in_assistant_native\",\"writing_expert_in_assistant_oggy\",\"writing_expert_in_assistant\",\"editor_writing_expert_pull_mode\",\"vbars_global\",\"cheetah_editor_feature_flag_inline_rewrite\",\"cheetah_editor_feature_flag_magic_rewrite\",\"cheetah_editor_feature_flag_product_onboarding\",\"gbgo_knowledge_share_web\",\"ggo_student_bts\",\"ggo_student_prompts_internal\",\"citation_builder\",\"citation_builder_banners_chrome\",\"citation_builder_banners_edge\",\"citation_builder_banners_firefox\",\"citation_builder_banners_safari\",\"citation_builder_internal\",\"citations_rollout\",\"citations_rollout_internal\",\"proofit_note_to_editor\"]";
+
+        // 构建请求
+        HttpRequest request = HttpUtil.createPost(url)
+                .header("accept", "*/*")
+                .header("accept-language", "zh-CN,zh;q=0.9")
+                .header("authorization", headers.get("authorization"))
+                .header("cache-control", "no-cache")
+                .header("content-type", "application/json")
+                .header("cookie", headers.get("cookie"))
+                .header("origin", "https://app.grammarly.com")
+                .header("pragma", "no-cache")
+                .header("priority", "u=1, i")
+                .header("referer", "https://app.grammarly.com/")
+                .header("sec-ch-ua", "\"Not/A)Brand\";v=\"8\", \"Chromium\";v=\"126\", \"Google Chrome\";v=\"126\"")
+                .header("sec-ch-ua-mobile", "?0")
+                .header("sec-ch-ua-platform", "\"macOS\"")
+                .header("sec-fetch-dest", "empty")
+                .header("sec-fetch-mode", "cors")
+                .header("sec-fetch-site", "same-site")
+                .header("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+                .header("x-client-type", "webeditor_chrome")
+                .header("x-client-version", "1.5.43-6111+master")
+                .header("x-container-id", headers.get("x-container-id"))
+                .header("x-csrf-token", headers.get("x-csrf-token"))
+                .body(requestBody);
+
+        // 发送请求并接收响应
+        HttpResponse response = request.execute();
+        if (response.getStatus() != 200) {
+            log.error("获取treatmentGet信息失败: {}", response.body());
+            throw new RuntimeException("获取treatmentGet信息失败");
+        }
+        return JSONUtil.toList(JSONUtil.parseArray(response.body()), TreatmentDTO.class);
+    }
+
+    public static List<String> getDocumentAPI(Map<String, String> headers) {
+        String codeVerifier = GrammarlyOAuth2Client.generateCodeVerifier();
+        AuthorizeDTO authorizeDTO = GrammarlyOAuth2Client.getAuthorizationCode(codeVerifier, headers);
+        String accessToken = GrammarlyOAuth2Client.getTokens(authorizeDTO.getCode(), codeVerifier, headers).getAccess_token();
+        HttpRequest request = HttpRequest.post("https://dox.grammarly.com/documents")
+                .header("accept", "application/json")
+                .header("accept-language", "zh-CN,zh;q=0.9")
+                .header("authorization", accessToken)
+                .header("cache-control", "no-cache")
+                .header("content-type", "application/json")
+                .header("cookie", headers.get("cookie"))
+                .header("origin", "https://app.grammarly.com")
+                .header("pragma", "no-cache")
+                .header("priority", "u=1, i")
+                .header("referer", "https://app.grammarly.com/")
+                .header("sec-ch-ua", "\"Not/A)Brand\";v=\"8\", \"Chromium\";v=\"126\", \"Google Chrome\";v=\"126\"")
+                .header("sec-ch-ua-mobile", "?0")
+                .header("sec-ch-ua-platform", "\"macOS\"")
+                .header("sec-fetch-dest", "empty")
+                .header("sec-fetch-mode", "cors")
+                .header("sec-fetch-site", "same-site")
+                .header("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+                .header("x-api-version", "2")
+                .header("x-client-type", "denali_editor")
+                .header("x-client-version", "1.5.43-6120+master")
+                .header("x-container-id", headers.get("x-container-id"))
+                .header("x-csrf-token", headers.get("x-csrf-token"))
+                .body("{}");
+
+        // 发送请求并接收响应
+        HttpResponse response = request.execute();
+        if (response.getStatus() != 201) {
+            log.error("获取Documents信息失败: {}", response);
+           return null;
+        }
+        log.info("获取Documents信息成功");
+        return new ArrayList<>();
+    }
+
 
     public static void main(String[] args) {
         String curl = "curl 'https://subscription.grammarly.com/api/v1/subscription' \\\n" +
@@ -246,12 +321,14 @@ public class GrammarlyOAuth2Client {
                 "  -H 'x-container-id: wdnn8q1vq3mj01g0' \\\n" +
                 "  -H 'x-csrf-token: AABNyppxtLJlWqQdcXSsa5ehM4L7E8zULRF5MA'";
         Map<String, String> headers = CookieParse.convertCurlToMap(curl);
-        String codeVerifier = GrammarlyOAuth2Client.generateCodeVerifier();
-        AuthorizeDTO authorizeDTO = GrammarlyOAuth2Client.getAuthorizationCode(codeVerifier, headers);
-        System.out.println(authorizeDTO.toString());
-        TokenDTO tokenDTO = GrammarlyOAuth2Client.getTokens(authorizeDTO.getCode(), codeVerifier, headers);
-        System.out.println(tokenDTO.toString());
+//        String codeVerifier = GrammarlyOAuth2Client.generateCodeVerifier();
+//        AuthorizeDTO authorizeDTO = GrammarlyOAuth2Client.getAuthorizationCode(codeVerifier, headers);
+//        System.out.println(authorizeDTO.toString());
+//        TokenDTO tokenDTO = GrammarlyOAuth2Client.getTokens(authorizeDTO.getCode(), codeVerifier, headers);
+       // System.out.println(tokenDTO.toString());
         System.out.println(getUser(headers));
+        System.out.println(getDocumentAPI(headers));
+        System.out.println(treatmentGet(headers));
     }
 
 }
