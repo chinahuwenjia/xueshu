@@ -23,7 +23,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
 
@@ -41,7 +40,7 @@ public class TurnitinProServiceImpl implements TurnitinProService {
 
 
     @Override
-    public boolean submitFile(Code code, String title, String region, MultipartFile file) {
+    public boolean submitFile(Code code, String title, String region, MultipartFile file, String excludeBibliography, String excludeQuotes, String excludeSmallMatchesMethod, int excludeSmallMatchesValueWords, int excludeSmallMatchesValuePercentage) {
         List<ManagerAccount> turnitinProAccountList = turnitinAccountService.getAccountByAccountType("pro");
         if (turnitinProAccountList.size() == 0) {
             log.error("提交失败，没有找到Turnitin Pro账号");
@@ -50,7 +49,7 @@ public class TurnitinProServiceImpl implements TurnitinProService {
         Collections.shuffle(turnitinProAccountList);
         ManagerAccount account = turnitinProAccountList.get(0);
         String curl = account.getCurlString();
-        if (!submitForm(code, region, curl, "disabled", 0, 0, file)) {
+        if (!submitForm(code, region, curl, excludeBibliography, excludeQuotes, excludeSmallMatchesMethod, excludeSmallMatchesValueWords, excludeSmallMatchesValuePercentage, file)) {
             log.error("提交失败，账号是：{}", account.getAccountName());
             throw new RuntimeException("提交失败，请联系人工客服");
         }
@@ -188,7 +187,7 @@ public class TurnitinProServiceImpl implements TurnitinProService {
     @Override
     public void deleteReport(Code code) {
         String deleteUrl = code.getDeleteUrl();
-        if (deleteUrl == null){
+        if (deleteUrl == null) {
             log.error("该报告已删除，无需再次删除");
             throw new RuntimeException("该报告已删除，无需再次删除");
         }
@@ -236,27 +235,26 @@ public class TurnitinProServiceImpl implements TurnitinProService {
 
 
     public void autoFreshTurnitinPro() {
-        System.out.printf(";;;;;;;开始自动刷新Turnitin Pro账号;;;;;;;;");
-       List<ManagerAccount> turnitinProAccountList = turnitinAccountService.getAccountByAccountType("pro");
-       log.info("开始自动刷新Turnitin Pro账号");
-       for (ManagerAccount managerAccount : turnitinProAccountList) {
-           String curl = managerAccount.getCurlString();
-           Map<String, String> headers = CookieParse.convertCurlToMap(curl);
-           String url = "https://scopedlens.com/self-service/submissions/";
+        List<ManagerAccount> turnitinProAccountList = turnitinAccountService.getAccountByAccountType("pro");
+        log.info("开始自动刷新Turnitin Pro账号");
+        for (ManagerAccount managerAccount : turnitinProAccountList) {
+            String curl = managerAccount.getCurlString();
+            Map<String, String> headers = CookieParse.convertCurlToMap(curl);
+            String url = "https://scopedlens.com/self-service/submissions/";
 
-           HttpRequest request = HttpUtil.createGet(url).addHeaders(headers);
-           HttpResponse response = request.execute();
-           if (response.getStatus() != 200) {
-               log.error("获取turnitinPro状态失败，账号是：{},原因是：{}", managerAccount.getAccountName(), response.body());
-               DingTalkRobot.sendMsg("获取turnitinPro状态失败，账号是：" + managerAccount.getAccountName() + "，原因是：" + response.body());
-           }
-       }
+            HttpRequest request = HttpUtil.createGet(url).addHeaders(headers);
+            HttpResponse response = request.execute();
+            if (response.getStatus() != 200) {
+                log.error("获取turnitinPro状态失败，账号是：{},原因是：{}", managerAccount.getAccountName(), response.body());
+                DingTalkRobot.sendMsg("获取turnitinPro状态失败，账号是：" + managerAccount.getAccountName() + "，原因是：" + response.body());
+            }
+        }
     }
 
-    private Boolean submitForm(Code currentCode,String region, String curl,  String excludeSmallMatchesMethod, int excludeSmallMatchesValueWords, int excludeSmallMatchesValuePercentage, MultipartFile file) {
+    private Boolean submitForm(Code currentCode, String region, String curl, String excludeBibliography, String excludeQuotes, String excludeSmallMatchesMethod, int excludeSmallMatchesValueWords, int excludeSmallMatchesValuePercentage, MultipartFile file) {
         File convFile;
         try {
-            convFile =CookieParse.convertToFile(file);
+            convFile = CookieParse.convertToFile(file);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -272,7 +270,7 @@ public class TurnitinProServiceImpl implements TurnitinProService {
 
         String traceId = SentryTraceGenerator.generateTraceId();
         String spanId = SentryTraceGenerator.generateSpanId();
-        Map<String, String> headers = getEntryTracy(traceId, spanId,getHeaders);
+        Map<String, String> headers = getEntryTracy(traceId, spanId, getHeaders);
 
         // 设置请求参数
         Map<String, Object> formParams = new HashMap<>();
@@ -280,9 +278,18 @@ public class TurnitinProServiceImpl implements TurnitinProService {
         formParams.put("region", region);
         formParams.put("upload_document", convFile); // 请修改为实际文件路径
         formParams.put("title", convFile.getName());
-        formParams.put("exclude_small_matches_method", "disabled");
+        formParams.put("exclude_small_matches_method", excludeSmallMatchesMethod);
         formParams.put("exclude_small_matches_value_words", excludeSmallMatchesValueWords);
         formParams.put("exclude_small_matches_value_percentage", excludeSmallMatchesValuePercentage);
+
+        if (excludeQuotes != null){
+            formParams.put("exclude_quotes", excludeQuotes);
+        }
+        if (excludeBibliography != null){
+            formParams.put("exclude_bibliography", excludeBibliography);
+        }
+
+        log.info("formParams is {}", formParams);
         // 发送POST请求
         HttpResponse response = HttpRequest.post(url)
                 .addHeaders(headers)
@@ -310,7 +317,7 @@ public class TurnitinProServiceImpl implements TurnitinProService {
         headers.put("Cookie", getHeaders.get("cookie"));
         headers.put("sec-ch-ua", "\"Google Chrome\";v=\"125\", \"Chromium\";v=\"125\", \"Not.A/Brand\";v=\"24\"");
         headers.put("content-type", "multipart/form-data; boundary=----WebKitFormBoundaryo7g3sbovVhgCdmcP");
-        headers.put("baggage", "sentry-environment=production,sentry-public_key=3dd2352722bbe1fcdd4c5d4a4c115a0d,sentry-trace_id="+traceId);
+        headers.put("baggage", "sentry-environment=production,sentry-public_key=3dd2352722bbe1fcdd4c5d4a4c115a0d,sentry-trace_id=" + traceId);
         headers.put("sec-ch-ua-mobile", "?0");
         headers.put("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36");
         headers.put("sentry-trace", sentryTrace);

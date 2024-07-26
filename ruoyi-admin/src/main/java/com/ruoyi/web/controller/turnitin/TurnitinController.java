@@ -1,6 +1,7 @@
 package com.ruoyi.web.controller.turnitin;
 
 import com.github.pagehelper.util.StringUtil;
+import com.ruoyi.common.annotation.RepeatSubmit;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.utils.XueShuStaticParam;
 import com.ruoyi.system.domain.turnitin.Code;
@@ -32,15 +33,21 @@ public class TurnitinController extends BaseController {
     private TurnitinService turnitinService;
 
     @PostMapping("/submit")
-    public ResponseEntity<?> submitCode(@RequestParam("code")  @NotNull String code,
-                                        @RequestParam("title") @NotNull  String title,
-                                        @RequestParam("region") @NotNull String region,
-                                        @RequestParam("file")  @NotNull MultipartFile file) {
+    public ResponseEntity<?> submitCode(@RequestParam("code") String code,
+                                        @RequestParam("file") MultipartFile file,
+                                        @RequestParam("region") String region,
+                                        @RequestParam("title") String title,
+                                        @RequestParam("excludeBibliography") String excludeBibliography,
+                                        @RequestParam("excludeQuotes") String excludeQuotes,
+                                        @RequestParam("excludeSmallMatchesMethod") String excludeSmallMatchesMethod,
+                                        @RequestParam("excludeSmallMatchesValueWords") int excludeSmallMatchesValueWords,
+                                        @RequestParam("excludeSmallMatchesValuePercentage") int excludeSmallMatchesValuePercentage
+    ) {
         try {
             Code resultCode = codeService.getAICodeResult(code);
             // 校验状态
             validatorStatus(resultCode);
-            Code submittedCode = codeService.submitCode(code, title, region, file);
+            Code submittedCode = codeService.submitCode(code, title, region, file, excludeBibliography, excludeQuotes, excludeSmallMatchesMethod, excludeSmallMatchesValueWords, excludeSmallMatchesValuePercentage);
             return ResponseEntity.ok(submittedCode);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("提交失败: " + e.getMessage());

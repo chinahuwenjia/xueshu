@@ -1,13 +1,14 @@
 <template>
   <div class="login">
     <el-form ref="loginForm" :model="loginForm" :rules="loginRules" class="login-form">
-      <h3 class="title">若依后台管理系统</h3>
+      <h3 class="title">{{ $t('login.title') }}</h3>
+      <lang-select class="set-language" />
       <el-form-item prop="username">
         <el-input
           v-model="loginForm.username"
           type="text"
-          auto-complete="on"
-          placeholder="账号"
+          auto-complete="off"
+          :placeholder="$t('login.username')"
         >
           <svg-icon slot="prefix" icon-class="user" class="el-input__icon input-icon" />
         </el-input>
@@ -16,8 +17,8 @@
         <el-input
           v-model="loginForm.password"
           type="password"
-          auto-complete="on"
-          placeholder="密码"
+          auto-complete="off"
+          :placeholder="$t('login.password')"
           @keyup.enter.native="handleLogin"
         >
           <svg-icon slot="prefix" icon-class="password" class="el-input__icon input-icon" />
@@ -27,7 +28,7 @@
         <el-input
           v-model="loginForm.code"
           auto-complete="off"
-          placeholder="验证码"
+          :placeholder="$t('login.code')"
           style="width: 63%"
           @keyup.enter.native="handleLogin"
         >
@@ -37,7 +38,7 @@
           <img :src="codeUrl" @click="getCode" class="login-code-img"/>
         </div>
       </el-form-item>
-      <el-checkbox v-model="loginForm.rememberMe" style="margin:0px 0px 25px 0px;">记住密码</el-checkbox>
+      <el-checkbox v-model="loginForm.rememberMe" style="margin:0px 0px 25px 0px;">{{ $t('login.rememberMe') }}</el-checkbox>
       <el-form-item style="width:100%;">
         <el-button
           :loading="loading"
@@ -46,7 +47,7 @@
           style="width:100%;"
           @click.native.prevent="handleLogin"
         >
-          <span v-if="!loading">登 录</span>
+          <span v-if="!loading">{{ $t('login.logIn') }}</span>
           <span v-else>登 录 中...</span>
         </el-button>
         <div style="float: right;" v-if="register">
@@ -62,12 +63,14 @@
 </template>
 
 <script>
+import LangSelect from '@/components/LangSelect'
 import { getCodeImg } from "@/api/login";
 import Cookies from "js-cookie";
 import { encrypt, decrypt } from '@/utils/jsencrypt'
 
 export default {
   name: "Login",
+  components: { LangSelect },
   data() {
     return {
       codeUrl: "",
@@ -89,7 +92,7 @@ export default {
       },
       loading: false,
       // 验证码开关
-      captchaEnabled: false,
+      captchaEnabled: true,
       // 注册开关
       register: false,
       redirect: undefined

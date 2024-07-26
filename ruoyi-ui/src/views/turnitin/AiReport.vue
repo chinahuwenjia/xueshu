@@ -221,7 +221,7 @@ export default {
       this.form.email = '';
       this.isDisabled = true;
       localStorage.setItem('isDisabled', 'true');
-      this.disabledCountdown = 60;
+      this.disabledCountdown = 6;
       localStorage.setItem('disabledCountdown', this.disabledCountdown);
       this.startDisabledCountdown();
     }

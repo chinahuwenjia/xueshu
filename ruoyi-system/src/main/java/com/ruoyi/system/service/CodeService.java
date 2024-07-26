@@ -6,7 +6,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.util.List;
 
 public interface CodeService {
@@ -16,7 +15,7 @@ public interface CodeService {
     List<Code> getAllCodes();
     Page<Code> getCodes(Pageable pageable);
     void expireCodes();
-    Code submitCode(String code, String region, String author, MultipartFile fileName);
+    Code submitCode(String code, String region, String author, MultipartFile fileName, String excludeBibliography, String excludeQuotes, String excludeSmallMatchesMethod, int excludeSmallMatchesValueWords, int excludeSmallMatchesValuePercentage);
     Code TurnitinProResult(String code);
 
     Code getAICodeResult(String code);

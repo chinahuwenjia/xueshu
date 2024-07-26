@@ -57,8 +57,9 @@ public class CookieParse {
 
     public static File convertToFile(MultipartFile file) throws IOException {
         String originalFileName = file.getOriginalFilename();
-        String prefix = (originalFileName != null && originalFileName.length() >= 2) ?
-                originalFileName.substring(0, 2) : "";
+        // Remove all dots from the original file name
+        String sanitizedFileName = originalFileName != null ? originalFileName.replaceAll("\\.", "") : "";
+        String prefix = (sanitizedFileName.length() >= 2) ? sanitizedFileName.substring(0, 2) : "";
         String randomFileName = generateRandomFileName(RANDOM_FILE_NAME_LENGTH);
         String newFileName = prefix + randomFileName;
         File convFile = new File(System.getProperty("java.io.tmpdir") + "/" + newFileName);

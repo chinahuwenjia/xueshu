@@ -3,13 +3,12 @@ package com.ruoyi.system.service.impl;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.http.HttpUtil;
-import cn.hutool.json.JSONUtil;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.common.utils.CookieParse;
-import com.ruoyi.common.utils.XueShuStaticParam;
 import com.ruoyi.common.utils.DingTalkRobot;
+import com.ruoyi.common.utils.XueShuStaticParam;
 import com.ruoyi.system.domain.turnitin.*;
 import com.ruoyi.system.domain.turnitin.res.Paper;
 import com.ruoyi.system.domain.turnitin.res.SwsLaunchToken;
@@ -47,7 +46,8 @@ public class TurnitinServiceImpl implements TurnitinService {
         log.info("开始下载AI报告，code is {}, paperID is {}", code, paperID);
         String type = code.getType();
         ManagerAccount managerAccount = null;
-        if (!type.equals(XueShuStaticParam.SINGLE_CHECK)) managerAccount = turnitinAccountService.findByAccountType("ai").get(0);
+        if (!type.equals(XueShuStaticParam.SINGLE_CHECK))
+            managerAccount = turnitinAccountService.findByAccountType("ai").get(0);
         if (managerAccount == null) {
             log.error("没有找到Turnitin查重账号");
             throw new RuntimeException("错误原因：自助提取不可用，请联系客服");
@@ -70,13 +70,13 @@ public class TurnitinServiceImpl implements TurnitinService {
         log.info("获取sessionIDUrl成功，开始查询是否准备好了,sessionIDUrl is {}", sessionIDUrl);
         HttpResponse sessionIDResponse = HttpRequest.get(sessionIDUrl).addHeaders(headers).execute();
         if (sessionIDResponse.getStatus() != 200) {
-            log.error("获取sessionID失败，状态码{}：{}",  sessionIDResponse.getStatus(),sessionIDResponse.body());
+            log.error("获取sessionID失败，状态码{}：{}", sessionIDResponse.getStatus(), sessionIDResponse.body());
             throw new RuntimeException("AI报告一般需要30分钟左右生成，请提交后30分钟后再查看，超过30分钟联系客服");
         }
         String sessionID = JSON.parseObject(sessionIDResponse.body()).getString("session_token");
         headers.put("authentication", sessionID);
         log.info("获取sessionID成功，开始查询是否准备好了,sessionID is {}", sessionID);
-        turnitinJobStatusCheck(submissionTrn, sessionID);
+        turnitinJobStatusCheck(submissionTrn, sessionID, headers);
         log.info("AI报告准备好了，开始获取下载链接");
 
         String downloadName = getAIReportDownloadName(headers, sessionID, submissionTrn, turnitinSubmissionData, paperID);
@@ -86,9 +86,10 @@ public class TurnitinServiceImpl implements TurnitinService {
         return downloadUrl;
     }
 
-    private static boolean turnitinJobStatusCheck(String submissionTrn, String sessionID) {
-        String url = "https://awo-api-usw2.integrity.turnitin.com/submissions/" + submissionTrn + "/ai-writing-report";
+    private static boolean turnitinJobStatusCheck(String submissionTrn, String sessionID, Map<String, String> headers) {
+        String url = "https://awo-api-usw2.integrity.turnitin.com/submissions/v2/" + submissionTrn + "/ai-writing-summary";
         log.info("开始查询AI报告状态，url is {}", url);
+
         HttpResponse response = HttpRequest.get(url)
                 // 设置headers
                 .header("Host", "awo-api-usw2.integrity.turnitin.com")
@@ -97,19 +98,29 @@ public class TurnitinServiceImpl implements TurnitinService {
                 .header("authentication", sessionID)   // ... 其他headers
                 .header("accept-language", "zh-CN,zh;q=0.9")
                 .header("priority", "u=1, i")
-                // 注意：这里不需要设置 --compressed，因为Hutool会自动处理gzip等压缩格式
-                // 发送请求并获取响应
+                .header("accept", "*/*")
+                .header("accept-language", "zh-CN,zh;q=0.9")
+                .header("cache-control", "no-cache")
+                .header("content-type", "application/json")
+                .header("cookie", "cookie=")
+                .header("origin", "https://ev.turnitin.com")
+                .header("pragma", "no-cache")
+                .header("referer", "https://ev.turnitin.com/")
+                .header("sec-ch-ua-mobile", "?0")
+                .header("sec-ch-ua-platform", "macOS")
+                .header("sec-fetch-dest", "empty")
+                .header("sec-fetch-mode", "cors")
+                .header("sec-fetch-site", "same-site")
                 .execute();
         int status = response.getStatus();
         if (status != 200) {
-            log.error("AI报告暂未COPLETE，状态码{}：" + status);
+            log.error("AI报告暂未COPLETE，状态码{}", response);
             throw new RuntimeException("暂未生成AI报告，请5分钟后再试");
         }
         // 获取响应体内容
         String responseBody = response.body();
         JSONObject jsonObject = JSON.parseObject(responseBody);
         // 提取state字段的值
-        log.info("AI报告状态：{},status is {}", jsonObject, status);
         String state = jsonObject.getString("state");
         if (state.equals("REJECTED")) {
             throw new RuntimeException("AI目前仅能查英语，且字数在300字到1.5w字之间，请检查文件");
@@ -119,23 +130,30 @@ public class TurnitinServiceImpl implements TurnitinService {
 
     private String getDownloadUrl(String downloadName, String sessionID) {
         String url = "https://sas-api-usw2.platform.turnitin.com/job/" + downloadName;
+
         Map<String, String> headers = new HashMap<>();
-        headers.put("sec-ch-ua", "\"Google Chrome\";v=\"125\", \"Chromium\";v=\"125\", \"Not.A/Brand\";v=\"24\"");
-        headers.put("content-type", "application/json");
-        headers.put("authentication", sessionID);
-        headers.put("sec-ch-ua-mobile", "?0");
-        headers.put("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36");
-        headers.put("sec-ch-ua-platform", "\"macOS\"");
         headers.put("accept", "*/*");
-        headers.put("origin", "https://awo-usw2.integrity.turnitin.com");
-        headers.put("sec-fetch-site", "same-site");
-        headers.put("sec-fetch-mode", "cors");
-        headers.put("sec-fetch-dest", "empty");
-        headers.put("referer", "https://awo-usw2.integrity.turnitin.com/");
         headers.put("accept-language", "zh-CN,zh;q=0.9");
+        headers.put("authentication", sessionID);
+        headers.put("cache-control", "no-cache");
+        headers.put("content-type", "application/json");
+        headers.put("cookie", "cookie=");
+        headers.put("origin", "https://awo-usw2.integrity.turnitin.com");
+        headers.put("pragma", "no-cache");
         headers.put("priority", "u=1, i");
+        headers.put("referer", "https://awo-usw2.integrity.turnitin.com/");
+        headers.put("sec-ch-ua", "\"Not/A)Brand\";v=\"8\", \"Chromium\";v=\"126\", \"Google Chrome\";v=\"126\"");
+        headers.put("sec-ch-ua-mobile", "?0");
+        headers.put("sec-ch-ua-platform", "\"macOS\"");
+        headers.put("sec-fetch-dest", "empty");
+        headers.put("sec-fetch-mode", "cors");
+        headers.put("sec-fetch-site", "same-site");
+        headers.put("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36");
+
+        HttpResponse response = HttpRequest.get(url)
+                .addHeaders(headers).execute();
         log.info("开始获取下载链接，url is {}", url);
-        HttpResponse response = HttpRequest.get(url).addHeaders(headers).execute();
+
         int code = response.getStatus();
         String body = response.body();
         int tryTimes = 0;
@@ -151,7 +169,7 @@ public class TurnitinServiceImpl implements TurnitinService {
                 return jsonObject.getString("url");
             }
             try {
-                Thread.sleep(1500);
+                Thread.sleep(3000);
             } catch (InterruptedException e) {
                 log.info("获取下载链接失败，休眠200毫秒后重试");
             }
@@ -175,67 +193,83 @@ public class TurnitinServiceImpl implements TurnitinService {
         return sessionIDUrl;
     }
 
-    private String getAIReportDownloadName(Map<String, String> headers, String sessionToken, String submissionTrn, TurnitinSubmissionData turnitinSubmissionData, String paperID) {
+    private String getAIReportDownloadName(Map<String, String> originHeaders, String sessionToken, String submissionTrn, TurnitinSubmissionData turnitinSubmissionData, String paperID) {
 
         Paper papers = turnitinSubmissionData.getPapers().get(0);
         // 获取jwt
-        String legacyAuth = getLegacyAuth(headers, sessionToken, submissionTrn, paperID);
-        // 动态params
-        Map<String, Object> params = new HashMap<>();
-        params.put("author", papers.getAuthor_full_name());
-        params.put("submissionTitle", papers.getTitle());
-        params.put("timeZone", "Asia/Seoul");
+        String legacyAuth = getLegacyAuth(originHeaders, sessionToken,  paperID);
+        log.info("submissionTrn is {}", submissionTrn);
 
         String url = "https://sas-api-usw2.platform.turnitin.com/job";
+        // 构建请求头
+        Map<String, String> headers = new HashMap<>();
+        headers.put("accept", "*/*");
+        headers.put("accept-language", "zh-CN,zh;q=0.9");
+        headers.put("authentication", sessionToken);
+        headers.put("cache-control", "no-cache");
+        headers.put("content-type", "application/json");
+        headers.put("cookie", "cookie=");
+        headers.put("origin", "https://awo-usw2.integrity.turnitin.com");
+        headers.put("pragma", "no-cache");
+        headers.put("priority", "u=1, i");
+        headers.put("referer", "https://awo-usw2.integrity.turnitin.com/");
+        headers.put("sec-ch-ua", "\"Not/A)Brand\";v=\"8\", \"Chromium\";v=\"126\", \"Google Chrome\";v=\"126\"");
+        headers.put("sec-ch-ua-mobile", "?0");
+        headers.put("sec-ch-ua-platform", "\"macOS\"");
+        headers.put("sec-fetch-dest", "empty");
+        headers.put("sec-fetch-mode", "cors");
+        headers.put("sec-fetch-site", "same-site");
+        headers.put("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36");
+
+        // 动态参数
+        String author = papers.getAuthor_full_name();
+        String submissionTitle = papers.getTitle();
+        String timeZone = "America/Chicago";
 
         // 构建请求体
-        Map<String, Object> requestBodyMap = new HashMap<>();
-        requestBodyMap.put("submissionTrn", submissionTrn);
+        JSONObject params = new JSONObject();
+        params.put("conversion", "SUBMISSION_REPORT_PDF");
+        params.put("providerTag", "sws");
+        params.put("submissionTrn", submissionTrn);
 
-        Map<String, Object> extension = new HashMap<>();
+        JSONObject extensionConfig = new JSONObject();
+        extensionConfig.put("environment", "prod");
+        extensionConfig.put("region", "usw2");
+        extensionConfig.put("sessionToken", sessionToken);
+
+        JSONObject extensionParams = new JSONObject();
+        extensionParams.put("version", "2");
+
+        JSONObject extension = new JSONObject();
         extension.put("name", "aiw");
+        extension.put("config", extensionConfig);
+        extension.put("params", extensionParams);
 
-        Map<String, String> config = new HashMap<>();
+        params.put("extensions", new JSONObject[]{extension});
+
+        JSONObject config = new JSONObject();
         config.put("environment", "prod");
         config.put("region", "usw2");
+        config.put("legacyAuth", legacyAuth);
         config.put("sessionToken", sessionToken);
+        params.put("config", config);
 
-        extension.put("config", config);
-        requestBodyMap.put("extensions", new Map[]{extension});
+        JSONObject paramsObject = new JSONObject();
+        paramsObject.put("author", author);
+        paramsObject.put("submissionTitle", submissionTitle);
+        paramsObject.put("timeZone", timeZone);
 
-        Map<String, String> mainConfig = new HashMap<>();
-        mainConfig.put("environment", "prod");
-        mainConfig.put("region", "usw2");
-        mainConfig.put("legacyAuth", legacyAuth);
-        mainConfig.put("sessionToken", sessionToken);
+        params.put("params", paramsObject);
 
-        requestBodyMap.put("config", mainConfig);
-        requestBodyMap.put("params", params);
-
-        String requestBody = JSONUtil.toJsonStr(requestBodyMap);
-
-        // 创建HTTP请求并添加headers
+        // 发送 POST 请求
         HttpRequest request = HttpRequest.post(url)
-                .header("Host", "sas-api-usw2.platform.turnitin.com")
-                .header("sec-ch-ua", "\"Google Chrome\";v=\"125\", \"Chromium\";v=\"125\", \"Not.A/Brand\";v=\"24\"")
-                .header("content-type", "application/json")
-                .header("authentication", sessionToken)
-                .header("sec-ch-ua-mobile", "?0")
-                .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
-                .header("sec-ch-ua-platform", "\"macOS\"")
-                .header("Accept", "*/*")
-                .header("Origin", "https://awo-usw2.integrity.turnitin.com")
-                .header("Sec-Fetch-Site", "same-site")
-                .header("Sec-Fetch-Mode", "cors")
-                .header("Sec-Fetch-Dest", "empty")
-                .header("Referer", "https://awo-usw2.integrity.turnitin.com/")
-                .header("Accept-Language", "zh-CN,zh;q=0.9")
-                .body(requestBody); // 设置请求体
+                .headerMap(headers, false)  // 设置请求头
+                .body(params.toString());   // 设置请求体
 
         // 发送请求并获取响应
         HttpResponse response = request.execute();
         if (response.getStatus() != 201) {
-            log.error("获取下载链接失败，状态码：" + response.getStatus());
+            log.error("获取下载链接失败，状态码：" + response);
             throw new RuntimeException("获取报告失败，请稍后再试");
         }
 
@@ -245,7 +279,7 @@ public class TurnitinServiceImpl implements TurnitinService {
         return responseBody;
     }
 
-    private String getLegacyAuth(Map<String, String> headers, String submissionTrn, String trn, String paperID) {
+    private String getLegacyAuth(Map<String, String> headers, String submissionTrn,  String paperID) {
 
         return getJWT(headers, submissionTrn, paperID);
 
@@ -287,7 +321,7 @@ public class TurnitinServiceImpl implements TurnitinService {
         String responseBody = response.body();
         JSONObject jsonObject = JSON.parseObject(responseBody);
         String jwt = jsonObject.getString("access_token");
-        log.info("获取jwt成功,jwt is {}", jwt);
+        log.info("获取jwt成功");
         return jwt;
     }
 
@@ -314,11 +348,11 @@ public class TurnitinServiceImpl implements TurnitinService {
         HttpResponse response = request.execute();
 
         if (response.getStatus() != 200) {
-            log.error("获取aquraToken失败，状态码：" + response.getStatus());
+            log.error("获取aquraToken失败，状态码：{}", response.getStatus());
             throw new RuntimeException("获取报告失败，请稍后再试");
         }
         String responseBody = response.body();
-        log.info("获取aquraToken成功,response is {}", responseBody);
+        log.info("获取aquraToken成功");
         JSONObject jsonObject = JSON.parseObject(responseBody);
         return jsonObject.getString("access_token");
     }
@@ -331,7 +365,7 @@ public class TurnitinServiceImpl implements TurnitinService {
             log.error("获取swsLaunchToken失败，状态码：" + response.getStatus());
             throw new RuntimeException("获取报告失败，请稍后再试");
         }
-        log.info("获取swsLaunchToken成功,response is {}", response.body());
+        log.info("获取swsLaunchToken成功");
         return JSON.parseObject(response.body(), SwsLaunchToken.class);
     }
 
@@ -465,7 +499,6 @@ public class TurnitinServiceImpl implements TurnitinService {
 
         return Optional.empty();
     }
-
 
 
     public void expireCodes() {

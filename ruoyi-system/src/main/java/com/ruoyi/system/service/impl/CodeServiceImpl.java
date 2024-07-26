@@ -1,6 +1,5 @@
 package com.ruoyi.system.service.impl;
 
-import com.ruoyi.common.annotation.RepeatSubmit;
 import com.ruoyi.common.utils.XueShuStaticParam;
 import com.ruoyi.system.domain.turnitin.Code;
 import com.ruoyi.system.domain.turnitin.res.StatsDTO;
@@ -20,7 +19,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
@@ -114,9 +112,9 @@ public class CodeServiceImpl implements CodeService {
     }
 
     @Override
-    public Code submitCode(String code, String title, String region, MultipartFile file) {
+    public Code submitCode(String code, String title, String region, MultipartFile file, String excludeBibliography, String excludeQuotes, String excludeSmallMatchesMethod, int excludeSmallMatchesValueWords, int excludeSmallMatchesValuePercentage) {
         Code existingCode = codeRepository.findByCode(code).orElseThrow(() -> new RuntimeException("查重码不存在，请确认是否输入正确"));
-        turnitinProService.submitFile(existingCode, title, region, file);
+        turnitinProService.submitFile(existingCode, title, region, file, excludeBibliography, excludeQuotes, excludeSmallMatchesMethod, excludeSmallMatchesValueWords, excludeSmallMatchesValuePercentage);
         return existingCode;
     }
 

@@ -58,3 +58,17 @@ export function getCodeImg() {
     timeout: 20000
   })
 }
+
+// 修改语言
+export function changeLanguage(lang){
+  return request({
+    url: '/changeLanguage',
+    method: 'get',
+    headers: {
+      isToken: false,
+    },
+    params: {
+      lang: lang
+    }
+  })
+}

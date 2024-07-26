@@ -1,76 +1,83 @@
 <template>
-  <div class="submission-form card">
-    <h2>提交查重</h2>
-    <form @submit.prevent="submitForm">
-      <div class="form-group">
-        <label for="check-code">查重码*</label>
-        <input type="text" id="check-code" v-model="form.checkCode" name="checkCode" required>
-      </div>
-      <div class="form-group">
-        <label for="file">文件*</label>
-        <div
-          class="file-dropzone"
-          @dragover.prevent
-          @drop.prevent="handleDrop"
-          @click="() => !form.file && this.$refs.fileInput.click()">
-          <p v-if="!form.file">点击或拖拽文件到这里上传</p>
-          <div v-else class="file-selected">
-            <p>已选择文件: {{ form.file.name }}</p>
-            <span @click.stop="removeFile" class="remove-file-btn">✖️</span>
+  <div class="submission-container">
+    <div class="card">
+      <el-form ref="elForm" :model="formData" :rules="rules" size="small" label-width="100px" label-position="top">
+        <el-form-item :label="$t('form.checkCode')" prop="checkCode">
+          <el-input v-model="formData.checkCode" name="checkCode" required></el-input>
+        </el-form-item>
+
+        <el-form-item :label="$t('form.file')" prop="file" required>
+          <el-upload
+            ref="file"
+            :file-list="fileList"
+            :before-upload="beforeUpload"
+            :on-change="handleFileChange"
+            accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.pps,.ppsx,.pdf,.ps,.txt,.html,.wpd,.odt,.rtf,.hwp"
+            :auto-upload="false"
+          >
+            <el-button size="small" type="primary" icon="el-icon-upload">{{$t('form.uploadFile')}}</el-button>
+            <div slot="tip" class="el-upload__tip">{{$t('form.fileTip')}}</div>
+          </el-upload>
+          <div v-if="formData.file" class="file-selected">
+            <p>{{$t('form.selectedFile')}} {{ formData.file.name }}</p>
+            <el-button type="danger" icon="el-icon-delete" size="small" @click="removeFile">{{$t('form.removeFile')}}</el-button>
           </div>
-          <p class="file-format-note">支持格式：DOC, DOCX, PDF, TXT (不超过30MB)</p>
-          <input
-            type="file"
-            id="file"
-            ref="fileInput"
-            @change="handleFileUpload"
-            class="file-input"
-            name="file"
-            required>
-        </div>
-      </div>
-      <div class="form-group">
-        <label for="region">Region*</label>
-        <div class="region-options">
-          <div>
-            <input type="radio" id="international" value="intl" v-model="form.region" name="region" required>
-            <label for="international">国际版查重 (International)</label>
-          </div>
-          <div>
-            <input type="radio" id="uk" value="uk" v-model="form.region" name="region" required>
-            <label for="uk">英国版查重 (United Kingdom)</label>
-          </div>
-        </div>
-      </div>
-      <div class="form-group">
-        <label for="title">标题</label>
-        <input type="text" id="title" v-model="form.title" name="title" readonly>
-      </div>
-      <button type="submit" class="btn btn-primary btn-lg w-100" :disabled="isSubmitting">
-        提交查重
-        <span v-if="isSubmitting" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-      </button>
-    </form>
-    <div class="note mt-3">
-      <p>查重时长取决于文档大小。</p>
-      <p>通常情况下查重时长在 <span class="highlight">5-10 分钟</span> 之内。</p>
-      <p>若已经超过 <span class="highlight">10 分钟</span> 可联系客服确认情况。</p>
+        </el-form-item>
+
+        <el-form-item :label="$t('form.region')" prop="region">
+          <el-radio-group v-model="formData.region" size="medium">
+            <el-radio label="intl">{{$t('form.international')}}</el-radio>
+            <el-radio label="uk">{{$t('form.uk')}}</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item :label="$t('form.title')" prop="title">
+          <el-input v-model="formData.title" name="title" readonly></el-input>
+        </el-form-item>
+
+        <el-form-item :label="$t('form.exclusionOptions')" prop="exclusionOptions">
+          <el-checkbox v-model="formData.excludeBibliography" size="medium">{{$t('form.excludeBibliography')}}</el-checkbox>
+          <el-checkbox v-model="formData.excludeQuotes" size="medium">{{$t('form.excludeQuotes')}}</el-checkbox>
+        </el-form-item>
+
+        <el-form-item :label="$t('form.excludeSmallMatchesMethod')" prop="excludeSmallMatchesMethod">
+          <el-radio-group v-model="formData.excludeSmallMatchesMethod" size="medium">
+            <el-radio label="disabled">{{$t('form.disabled')}}</el-radio>
+            <el-radio label="by_words">{{$t('form.byWords')}}</el-radio>
+            <el-radio label="by_percentage">{{$t('form.byPercentage')}}</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item v-if="formData.excludeSmallMatchesMethod === 'by_words'" :label="$t('form.excludeSmallMatchesValueWords')" prop="excludeSmallMatchesValueWords">
+          <el-input-number v-model="formData.excludeSmallMatchesValueWords" :min="0" :max="1000"></el-input-number>
+          <span>{{$t('form.words')}}</span>
+        </el-form-item>
+
+        <el-form-item v-if="formData.excludeSmallMatchesMethod === 'by_percentage'" :label="$t('form.excludeSmallMatchesValuePercentage')" prop="excludeSmallMatchesValuePercentage">
+          <el-input-number v-model="formData.excludeSmallMatchesValuePercentage" :min="0" :max="100"></el-input-number>
+          <span>{{$t('form.percentage')}}</span>
+        </el-form-item>
+
+        <el-form-item size="large">
+          <el-button type="primary" @click="confirmSubmission">{{$t('common.submit')}}</el-button>
+        </el-form-item>
+      </el-form>
     </div>
 
-    <div v-if="showGuide" class="guide-overlay">
-      <div class="guide-modal">
-        <h2>欢迎使用Turnitin 查重系统</h2>
-        <p>文件已设置不收录(No respority)</p>
-        <p>步骤如下：</p>
-        <ol>
-          <li>填写查重码</li>
-          <li>上传需要查重的文件（支持 DOC, DOCX, PDF, TXT 格式，最大 15MB）。</li>
-          <li>输入查重码。</li>
-          <li>点击提交查重按钮，稍等10分钟左右去提取报告即可。</li>
-        </ol>
-        <button @click="closeGuide" class="btn btn-primary">我知道了</button>
+    <el-dialog :visible.sync="isConfirmationDialogVisible" :title="$t('dialog.confirmation')" :before-close="handleDialogClose">
+      <p>{{$t('dialog.submissionTime')}}</p>
+      <p>{{$t('dialog.usualTime')}} <span class="highlight">{{$t('dialog.minutes')}}</span> {{$t('dialog.contactService')}}</p>
+      <span slot="footer" class="dialog-footer">
+        <el-button type="primary" @click="submitForm">{{$t('common.confirm')}}</el-button>
+      </span>
+      <span slot="close" class="el-dialog__headerbtn"><i class="el-dialog__close el-icon el-icon-close" style="color: red;"></i></span>
+    </el-dialog>
+
+    <el-dialog :visible.sync="isSubmitting" :title="$t('dialog.submitting')" :show-close="false">
+      <div style="text-align: center;">
+        <el-spinner type="circle" />
+        <p>{{$t('dialog.pleaseWait')}}</p>
       </div>
-    </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -80,13 +87,34 @@ import axios from 'axios';
 export default {
   data() {
     return {
-      form: {
+      formData: {
         checkCode: '',
         file: null,
         region: '',
-        title: ''
+        title: '',
+        excludeBibliography: null,
+        excludeQuotes: null,
+        excludeSmallMatchesMethod: 'disabled',
+        excludeSmallMatchesValueWords: 0,
+        excludeSmallMatchesValuePercentage: 0
       },
+      rules: {
+        checkCode: [
+          { required: true, message: this.$t('form.checkCode'), trigger: 'blur' }
+        ],
+        file: [
+          { required: true, message: this.$t('form.file'), trigger: 'change' }
+        ],
+        region: [
+          { required: true, message: this.$t('form.region'), trigger: 'change' }
+        ],
+        excludeSmallMatchesMethod: [
+          { required: true, message: this.$t('form.excludeSmallMatchesMethod'), trigger: 'change' }
+        ]
+      },
+      fileList: [],
       isSubmitting: false,
+      isConfirmationDialogVisible: false,
       showGuide: false
     };
   },
@@ -97,31 +125,28 @@ export default {
     }
   },
   methods: {
-    handleFileUpload(event) {
-      const file = event.target.files[0];
-      if (this.validateFile(file)) {
-        this.form.file = file;
-        this.form.title = this.generateTitle(file.name);
+    beforeUpload(file) {
+      const isRightSize = file.size / 1024 / 1024 < 30;
+      if (!isRightSize) {
+        this.$message.error(this.$t('form.fileTip'));
       }
-    },
-    handleDrop(event) {
-      const files = event.dataTransfer.files;
-      if (files.length > 0) {
-        const file = files[0];
-        if (this.validateFile(file)) {
-          this.form.file = file;
-          this.form.title = this.generateTitle(file.name);
-          this.$refs.fileInput.files = files;  // 同步更新 input 元素的值
-        }
+      const validFormats = [
+        'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain',
+        'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/postscript', 'text/html',
+        'application/wordperfect', 'application/vnd.oasis.opendocument.text', 'application/rtf', 'application/x-hwp'
+      ];
+      const isAccept = validFormats.includes(file.type);
+      if (!isAccept) {
+        this.$message.error(this.$t('form.fileTip'));
       }
+      return isRightSize && isAccept;
     },
-    validateFile(file) {
-      const validFormats = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
-      if (file && validFormats.includes(file.type) && file.size <= 30 * 1024 * 1024) {
-        return true;
-      } else {
-        alert('请上传符合要求的文件（DOC, DOCX, PDF, TXT格式，不超过15MB，AI目前只支持英文，字数范围在350-1.5万字）');
-        return false;
+    handleFileChange(file, fileList) {
+      this.fileList = fileList;
+      if (fileList.length > 0) {
+        this.formData.file = fileList[0].raw;
+        this.formData.title = this.generateTitle(fileList[0].name);
       }
     },
     generateTitle(fileName) {
@@ -129,43 +154,48 @@ export default {
       return fileName.replace(`.${fileExtension}`, '');
     },
     removeFile() {
-      this.form.file = null;
-      this.form.title = '';
-      this.$refs.fileInput.value = '';
+      this.fileList = [];
+      this.formData.file = null;
+      this.formData.title = '';
+    },
+    confirmSubmission() {
+      this.isConfirmationDialogVisible = true;
     },
     async submitForm() {
-      if (!this.form.file) {
-        alert('请上传文件');
-        return;
-      }
+      this.$refs.elForm.validate(async (valid) => {
+        if (valid) {
+          this.isConfirmationDialogVisible = false;
+          this.isSubmitting = true;
+          const formData = new FormData();
+          formData.append('code', this.formData.checkCode);
+          formData.append('file', this.formData.file);
+          formData.append('region', this.formData.region);
+          formData.append('title', this.formData.title);
+          formData.append('excludeBibliography', this.formData.excludeBibliography ? 'on' : null);
+          formData.append('excludeQuotes', this.formData.excludeQuotes ? 'on' : null);
+          formData.append('excludeSmallMatchesMethod', this.formData.excludeSmallMatchesMethod);
+          formData.append('excludeSmallMatchesValueWords', this.formData.excludeSmallMatchesValueWords);
+          formData.append('excludeSmallMatchesValuePercentage', this.formData.excludeSmallMatchesValuePercentage);
 
-      if (!this.form.region) {
-        alert('请选择一个区域');
-        return;
-      }
+          try {
+            const response = await axios.post(`${process.env.VUE_APP_BASE_API}/turnitin/submit`, formData);
 
-      this.isSubmitting = true;
-
-      const formData = new FormData();
-      formData.append('code', this.form.checkCode);
-      formData.append('file', this.form.file);
-      formData.append('region', this.form.region);
-      formData.append('title', this.form.title);
-
-
-      try {
-        const response = await axios.post(`${process.env.VUE_APP_BASE_API}/turnitin/submit`, formData);
-
-        if (response.status === 200) {
-          this.$emit('navigate-to-result');
-        } else {
-          alert('提交失败');
+            if (response.status === 200) {
+              this.$emit('navigate-to-result');
+              this.$message.success(this.$t('form.successMessage'));
+            } else {
+              this.$message.error(this.$t('form.errorMessage'));
+            }
+          } catch (error) {
+            this.$message.error(`${this.$t('form.errorMessage')}: ${error.response ? error.response.data : error.message}`);
+          } finally {
+            this.isSubmitting = false;
+          }
         }
-      } catch (error) {
-        alert(`提交失败: ${error.response ? error.response.data : error.message}`);
-      } finally {
-        this.isSubmitting = false;
-      }
+      });
+    },
+    handleDialogClose() {
+      this.isConfirmationDialogVisible = false;
     },
     closeGuide() {
       this.showGuide = false;
@@ -174,60 +204,34 @@ export default {
 };
 </script>
 
-<style>
-/* 通用样式 */
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background-color: #f8f9fa;
-  margin: 0;
-  padding: 0;
+<style scoped>
+.submission-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f0f2f5;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
-.submission-form {
+.card {
   background-color: #fff;
-  padding: 20px;
+  padding: 20px 30px;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  max-width: 900px;
+  width: 100%;
+  box-sizing: border-box;
   transition: all 0.3s ease;
-  max-width: 700px;
-  margin: 20px auto;
 }
 
-.submission-form:hover {
+.card:hover {
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
 }
 
-.submission-form h2 {
-  margin-bottom: 20px;
-  text-align: center;
-  font-size: 24px;
-  color: #333;
-  font-weight: 600;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 600;
-  color: #555;
-}
-
-.form-group input[type="text"] {
-  width: 100%;
-  padding: 10px;
-  box-sizing: border-box;
-  border: 2px solid #ddd;
-  border-radius: 8px;
-  transition: border 0.3s ease;
-}
-
-.form-group input[type="text"]:focus {
-  border-color: #007bff;
-  outline: none;
+.el-form-item {
+  margin-bottom: 15px;
 }
 
 .file-dropzone {
@@ -293,7 +297,7 @@ body {
   margin-right: 5px;
 }
 
-button {
+.el-button--primary {
   width: 100%;
   background-color: #007bff;
   color: #fff;
@@ -310,28 +314,16 @@ button {
   margin-top: 20px;
 }
 
-button:disabled {
+.el-button--primary:disabled {
   background-color: #6c757d;
 }
 
-button .spinner-border {
+.el-button--primary .spinner-border {
   margin-left: 10px;
 }
 
-button:hover {
+.el-button--primary:hover {
   background-color: #0056b3;
-}
-
-.card {
-  background-color: #fff;
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  padding: 30px;
-  transition: all 0.3s ease;
-}
-
-.card:hover {
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
 }
 
 .note {
@@ -357,7 +349,7 @@ button:hover {
 
 .note .highlight {
   font-weight: 700;
-  color: #007bff;
+  color: red;
   font-size: 16px;
 }
 
@@ -422,6 +414,8 @@ button:hover {
 }
 
 @keyframes spinner-border {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

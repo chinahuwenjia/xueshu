@@ -12,7 +12,11 @@
         <p>通常情况下查重时长在 <span class="highlight">5-10 分钟</span> 之内。</p>
         <p>若已经超过 <span class="highlight">10 分钟</span> 可联系客服确认情况。</p>
       </div>
-      <button type="submit" class="btn btn-primary btn-lg w-100">提取报告</button>
+      <div class="button-wrapper">
+        <button :disabled="queryCountdown > 0" type="submit" class="btn btn-primary btn-lg">
+          {{ queryCountdown > 0 ? `请稍等${queryCountdown}秒后再提取` : '提取报告' }}
+        </button>
+      </div>
     </form>
 
     <div v-if="loading" class="loading-overlay">
@@ -33,8 +37,8 @@
               <i class="fas fa-file-download"></i> AI报告 ({{ result.aiWriting }}%)
             </a>
             <span v-else class="icon-button warning">
-          <i class="fas fa-exclamation-circle"></i> 该报告不符合Turnitin-AI生成规范，原因是({{ result.aiWriting }})
-        </span>
+              <i class="fas fa-exclamation-circle"></i> 该报告不符合Turnitin-AI生成规范，原因是({{ result.aiWriting }})
+            </span>
           </template>
         </div>
       </div>
@@ -74,7 +78,9 @@ export default {
       loading: false,
       showAlert: false,
       showSuccessAlert: false,
-      countdown: 10,
+      countdown: 15, // 报告的倒计时
+      queryCountdown: 0, // 查询按钮的倒计时
+      queryInterval: null,
       countdownInterval: null,
     };
   },
@@ -85,17 +91,21 @@ export default {
   },
   methods: {
     async fetchResult() {
+      if (this.queryCountdown > 0) return;
+
       this.loading = true;
+
       try {
         let url = process.env.VUE_APP_BASE_API + '/turnitin/result';
         const response = await axios.get(url, {
-          params: {code: this.form.checkCode}
+          params: { code: this.form.checkCode }
         });
         const result = response;
+        this.startQueryCountdown(); // 开始查询按钮倒计时
+        this.startCountdown();
         if (result.status === 200) {
           this.result = result.data;
           this.errorMessage = '';
-          this.startCountdown();
         } else {
           this.errorMessage = result.message || '报告未找到';
           this.showAlert = true;
@@ -105,6 +115,8 @@ export default {
         this.showAlert = true;
       } finally {
         this.loading = false;
+        this.startQueryCountdown(); // 开始查询按钮倒计时
+        this.startCountdown();
       }
     },
     startCountdown() {
@@ -117,6 +129,15 @@ export default {
         }
       }, 60000); // Update every minute
     },
+    startQueryCountdown() {
+      this.queryCountdown = 10;
+      this.queryInterval = setInterval(() => {
+        this.queryCountdown--;
+        if (this.queryCountdown === 0) {
+          clearInterval(this.queryInterval);
+        }
+      }, 1000); // Update every second
+    },
     confirmDelete() {
       if (confirm('确认删除提交的文件与查重报告吗？')) {
         this.deleteReport();
@@ -127,7 +148,7 @@ export default {
       try {
         let url = process.env.VUE_APP_BASE_API + '/turnitin/deleteResult';
         const response = await axios.get(url, {
-          params: {code: this.form.checkCode}
+          params: { code: this.form.checkCode }
         });
         const result = response;
         console.log(result);
@@ -155,12 +176,14 @@ export default {
     if (this.countdownInterval) {
       clearInterval(this.countdownInterval);
     }
+    if (this.queryInterval) {
+      clearInterval(this.queryInterval);
+    }
   }
 };
 </script>
 
-<style>
-/* 样式代码保持不变 */
+<style scoped>
 .result-form {
   background-color: #fff;
   padding: 20px;
@@ -209,7 +232,6 @@ export default {
   color: #212529; /* 修改为深色字体以确保可读性 */
 }
 
-
 .form-group label {
   display: block;
   margin-bottom: 6px;
@@ -233,10 +255,16 @@ export default {
   outline: none;
 }
 
+.button-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 15px;
+}
+
 button {
   background-color: #007bff;
   color: #fff;
-  padding: 12px;
+  padding: 12px 100px; /* 调整padding使按钮更长 */
   border: none;
   cursor: pointer;
   border-radius: 6px;
@@ -330,7 +358,7 @@ button:hover {
 
 .note .highlight {
   font-weight: 700;
-  color: #007bff;
+  color: red;
   font-size: 14px;
 }
 
